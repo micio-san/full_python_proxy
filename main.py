@@ -2,22 +2,26 @@ import socketserver
 import http.server
 import urllib.request
 from logConf import logger
-
+from Security.DnsCheck import is_allowed_target
+from Security.CheckJwtToken import checkJwt
 
 PORT = 8080
 #http.server is not recommendent for production, no security checks implemented
+#SimpleHTTPRequestHandler inherits from .BaseHTTPRequestHandler
 class SimpleProxy(http.server.SimpleHTTPRequestHandler):
     #This method overrides the base class’ do_GET. It will be called whenever the server receives an HTTP GET request for this handler.
     def do_GET(self):
         #self.path equals "/https://example.com, remove 1st char
         target_url=self.path[1:]
-        if not (target_url.startswith("http") and target_url.find("://") != -1):
-            logger.fatal(target_url)
+        if not is_allowed_target(target_url=target_url):
+            logger.fatal(f"not allowed url : {target_url}")
             self.send_response(400)
             self.end_headers()
+            #wfile is a method of of BaseHTTPRequestHandler, it contains the output stream for writing a response back to the client. 
             self.wfile.write(b"Invalid URL")
         else:
             logger.info(target_url)
+            checkJwt(self)
             try:
                 #opens target url,the with context ensures the response is closed automatically at the end of the block,
                 # returns an object HTTPResponse.
@@ -44,7 +48,7 @@ class SimpleProxy(http.server.SimpleHTTPRequestHandler):
                 logger.error(e)
                 self.send_response(500)
                 self.end_headers()
-                self.wfile.writable(str(e).encode())
+                self.wfile.write(str(e).encode())
 
 # enters the server main loop, accepting connections and handling requests until the process is terminated.
 #TCPServer is single trhad, one req at a time, proxy becomes unresponsive under multiple clients
