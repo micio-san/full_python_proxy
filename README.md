@@ -1,4 +1,4 @@
-handling https protocol \n
+handling https protocol /n
 post requests
 authentication jwt
 protection dns
